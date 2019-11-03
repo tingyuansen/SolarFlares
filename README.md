@@ -13,7 +13,7 @@ flow of thought and how we tried different approaches before we choose the final
 The two files above only take use of a small part of the training data (`fold3Training.json` from the chanllenge) for the purpose
 of model development. On the contrary,
 
-* `train_pred_using_all_data.py` takes use of all three training data sets provided by the chanllenge. 
+* `train_pred_using_all_data.py` takes use of all three training data sets provided by the chanllenge, train an ensemble of models, and make predictions for the test data set.
 
 * `read_json.py` contains functions for reading data from .json files and converting them to numpy arrays.
 
