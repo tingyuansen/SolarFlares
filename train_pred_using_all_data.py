@@ -83,6 +83,9 @@ class FeatureCurator():
 
     # fill in nan using linear regression iteratively
     def fill_nan(self):
+        # replace positive (negative) infty by np.nan
+        self.data_expand = np.nan_to_num(self.data_expand, nan=np.nan, posinf=np.nan, neginf=np.nan)
+        # fill nan by linear regression iteratively
         self.data_expand = IterativeImputer().fit_transform(self.data_expand)
         return self
 
@@ -288,265 +291,120 @@ def classifier_bidirection(hidden_size, time_steps, feature_num, learning_rate, 
 
 
 
-from read_json import convert_json_data_to_nparray
+from read_json import convert_json_data_to_nparray, convert_json_test_to_nparray
 
 path_to_data = '../input'
-file_name = "fold"+str(3)+"Training.json"
-fname = os.path.join(path_to_data,file_name)
+for fold_num in range(2,3):
+    print('train on {}th data set.'.format(fold_num))
+    file_name = "fold"+str(fold_num)+"Training.json"
+    fname = os.path.join(path_to_data,file_name)
 
-# Read in time series of 25 features into all_input, correct class labels into labels, and
-# the unique ids for all data samples into ids.
-all_input, class_labels, ids = convert_json_data_to_nparray(path_to_data, file_name)
+    # Read in time series of 25 features into all_input, correct class labels into labels, and
+    # the unique ids for all data samples into ids.
+    all_input, class_labels, ids = convert_json_data_to_nparray(path_to_data, file_name)
 
-# Change X and y to numpy.ndarray in the correct shape.
-X_all = np.array(all_input)
-y_all = np.array([class_labels]).T
-
-
-# We use sklearn.model_selection.StratifiedShuffleSplit to split the data set into train and test sets.
-# This method makes the train and test sets to have equally balanced classes.
-# Because the train set will later be used for cross validation,
-# I will call the inputs and labels for cross validation `X` and `y`.
-from sklearn.model_selection import StratifiedShuffleSplit
-
-# test set is 30% of the total data set.
-sss = StratifiedShuffleSplit(n_splits=1, test_size=0.3, random_state=0)
-sss.get_n_splits(X_all, y_all)
-
-for cv_index, test_index in sss.split(X_all,y_all):
-    X, X_test = X_all[cv_index], X_all[test_index]
-    y, y_test = y_all[cv_index], y_all[test_index]
-
-labels = y.copy()
-
-"""
-# these two lines below read in scaled data from .npy files which have been scaled using the
-# time-consuming version of Feature Curation described above.
-# read in scaled features and targeted (correct) outputs
-use_time_saving_feature_curation = False
-X = np.load('../input/X_scaled.npy')
-y = np.load('../input/y.npy')
-labels = y.copy()
-print('There are {} NaN in y.'.format(np.isnan(y).sum()))
-print('There are {} NaN in X.'.format(np.isnan(X).sum()))
-"""
-
-# use the time saving version of feature curation
-use_time_saving_feature_curation = True
-
-# upsampling minor class (Class 1) and downsampling major class (Class 0)
-# so that they each occupy 50% of the training data.
-# we decide not to use it either, because we find this does a worse job on the F1 score of the validation.
-use_balance_classes = False
-
-# since we find the weighted loss function we design works worse than categorical cross entropy
-# the weighted loss function keeps growing after only a few epochs.
-use_weighted_loss = False
+    # Change X and y to numpy.ndarray in the correct shape.
+    X = np.array(all_input)
+    y = np.array([class_labels]).T
+    labels = y.copy()
 
 
-# one-hot encode y, [0] --> [1,0]; [1] --> [0, 1]
-onehot_encoder = OneHotEncoder(sparse=False)
-y = np.asarray(onehot_encoder.fit_transform(labels), dtype=FLOAT_TYPE)
-y_dim = np.shape(y)[1] # y_dim =2 after OneHotEncoder()
+    # use the time saving version of feature curation
+    use_time_saving_feature_curation = True
+
+    # upsampling minor class (Class 1) and downsampling major class (Class 0)
+    # so that they each occupy 50% of the training data.
+    # we decide not to use it either, because we find this does a worse job on the F1 score of the validation.
+    use_balance_classes = False
+
+    # since we find the weighted loss function we design works worse than categorical cross entropy
+    # the weighted loss function keeps growing after only a few epochs.
+    use_weighted_loss = False
 
 
-# Set some hyperparameters
-num_epochs = 100
-time_steps = X.shape[1]
-batch_size = 256 # int(n_sample/30) # was 256 for fold3
-feature_num = X.shape[2]
-hidden_size = feature_num
-initial_lr = 0.001 # initial learning for optimizer, default for Adam is 0.001;
-# SGD keeps constant learning rate with default value 0.01
-
-# Split X, y into training and validation sets
-# define k-fold cross validation test harness
-seed = 10 # random seed for reproductivity
-
-n_splits = 5 # split data set into 0.2 validation & 0.8 training for cross validation.
-
-# sklearn.model_selection.StratifiedKFold splits data while preserving percentage of samples for each class
-# sklearn.model_selection.StratifiedKFold provides indices
-kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    # one-hot encode y, [0] --> [1,0]; [1] --> [0, 1]
+    onehot_encoder = OneHotEncoder(sparse=False)
+    y = np.asarray(onehot_encoder.fit_transform(labels), dtype=FLOAT_TYPE)
+    y_dim = np.shape(y)[1] # y_dim =2 after OneHotEncoder()
 
 
-"""
-# cross validation for the bidirectional lstm model `classifier_bidirection`.
-# since StratifiedKFold returns indices, NO need to pass in .split(X,y),
-# instead passing in .split(y,y) is enough
-cv_count = 0
-for train, val in kfold.split(np.asarray(labels), np.asarray(labels)):
-    if cv_count >0: # only run one iteration of cross validation for the purpose of exhibition.
-        break
-    X_train = X[train]
-    X_val = X[val]
-    y_train = y[train]
-    y_val = y[val]
+    # Set some hyperparameters
+    num_epochs = 100
+    time_steps = X.shape[1]
+    n_sample = len(y)
+    batch_size = int(n_sample/100) # was 256 for fold3
+    feature_num = X.shape[2]
+    hidden_size = feature_num
+    initial_lr = 0.001 # initial learning for optimizer, default for Adam is 0.001;
+    # SGD keeps constant learning rate with default value 0.01
 
-    '''
-    If we use the time-saving version of feature curation, featured are not yet curated
-    beforehand and thus we need to do feature curation here.
-    '''
-    if use_time_saving_feature_curation:
+    # Split X, y into training and validation sets
+    # define k-fold cross validation test harness
+    # seed = 2 # random seed for reproductivity
 
-        # feature curation for the training set
-        X_train_FC = FeatureCurator(X_train)
-        X_train_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
-        X_train = X_train_FC.data
+    n_splits = 4 # split data set into 0.2 validation & 0.8 training for cross validation.
 
-        # feature curation for the validation set
-        X_val_FC = FeatureCurator(X_val)
-        X_val_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
-        X_val = X_val_FC.data
+    # sklearn.model_selection.StratifiedKFold splits data while preserving percentage of samples for each class
+    # sklearn.model_selection.StratifiedKFold provides indices
+    # kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=None)
 
-    '''
-    For X_train and y_train: upsample minor and downsample major class
-    so that each class each occupies 50% of the X_train and y_train.
-    Make sure you do not do this to X_val and y_val
-    '''
-    if use_balance_classes:
-        X_train, y_train = balance_classes(X_train, y_train)
+    # train 5 models using cross validation, and save the model with the best val_f1_score at each cross validation.
+    cv_cnt = 0
+    for train, val in kfold.split(np.asarray(labels), np.asarray(labels)):
+        # count the number of cross validation
+        cv_cnt += 1
+        print('{}th cv:'.format(cv_cnt))
+        # save the model achieving the best val_f1_score
+        checkpoint = tf.keras.callbacks.ModelCheckpoint('bidirection_cv_'+str(cv_cnt)+'_fold_'+str(fold_num)+'.h5', \
+                                                    monitor='val_f1_score', mode='max', save_best_only=True, verbose=1)
+        earlystop = tf.keras.callbacks.EarlyStopping(monitor='val_f1_score', mode='max', patience=20, verbose=1)
 
-    # y does not need to be cured.
+        # assign train and validation data
+        X_train = X[train]
+        X_val = X[val]
+        y_train = y[train]
+        y_val = y[val]
 
-    # train and validate
-    clf = KerasClassifier(classifier_bidirection, hidden_size=hidden_size, time_steps=time_steps,
-                          feature_num=feature_num,learning_rate = initial_lr, use_weighted_loss=use_weighted_loss,\
-                          epochs=num_epochs,batch_size=batch_size, verbose=1, validation_data=(X_val,y_val))
-    history = clf.fit(X_train, y_train)
-    cv_count += 1
+        '''
+        If we use the time-saving version of feature curation, featured are not yet curated
+        beforehand and thus we need to do feature curation here.
+        '''
+        if use_time_saving_feature_curation:
 
+            # feature curation for the training set
+            X_train_FC = FeatureCurator(X_train)
+            X_train_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
+            X_train = X_train_FC.data
 
-# list all data in history
-print(history.history.keys())
-fig, axes = plt.subplots(1,2,figsize=(12,6))
-axes[0].plot(history.history['loss'])
-axes[0].plot(history.history['val_loss'])
-axes[0].set_xlabel('epoch')
-axes[0].set_ylabel('loss')
-axes[0].legend(['train','validation'], loc='upper right')
-axes[1].plot(history.history['f1_score'])
-axes[1].plot(history.history['val_f1_score'])
-axes[1].set_xlabel('epoch')
-axes[1].set_ylabel('F1 score')
-fig.suptitle('Loss (left) and F1 score (left) change with training Epoch')
-plt.show()
-"""
+            # feature curation for the validation set
+            X_val_FC = FeatureCurator(X_val)
+            X_val_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
+            X_val = X_val_FC.data
 
+        '''
+        For X_train and y_train: upsample minor and downsample major class
+        so that each class each occupies 50% of the X_train and y_train.
+        Make sure you do not do this to X_val and y_val
+        '''
+        if use_balance_classes:
+            X_train, y_train = balance_classes(X_train, y_train)
+
+        # define the model
+        model = classifier_bidirection(hidden_size=hidden_size, time_steps=time_steps, feature_num=feature_num,\
+                           learning_rate = initial_lr, use_weighted_loss=use_weighted_loss)
+
+        # train the model
+        history = model.fit(X_train, y_train, epochs=num_epochs, batch_size=batch_size,
+                            callbacks=[checkpoint, earlystop], validation_data=(X_val,y_val))
 
 """
-# cross validation for the lstm model `classifier`.
-# since StratifiedKFold returns indices, NO need to pass in .split(X,y),
-# instead passing in .split(y,y) is enough
-cv_count = 0
-for train, val in kfold.split(np.asarray(labels), np.asarray(labels)):
-    if cv_count >0: # only run one iteration of cross validation for the purpose of exhibition.
-        break
-    X_train = X[train]
-    X_val = X[val]
-    y_train = y[train]
-    y_val = y[val]
-
-    '''
-    If we use the time-saving version of feature curation, featured are not yet curated
-    beforehand and thus we need to do feature curation here.
-    '''
-    if use_time_saving_feature_curation:
-
-        # feature curation for the training set
-        X_train_FC = FeatureCurator(X_train)
-        X_train_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
-        X_train = X_train_FC.data
-
-        # feature curation for the validation set
-        X_val_FC = FeatureCurator(X_val)
-        X_val_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
-        X_val = X_val_FC.data
-
-    '''
-    For X_train and y_train: upsample minor and downsample major class
-    so that each class each occupies 50% of the X_train and y_train.
-    Make sure you do not do this to X_val and y_val
-    '''
-    if use_balance_classes:
-        X_train, y_train = balance_classes(X_train, y_train)
-
-    # train and validate
-    clf = KerasClassifier(classifier, hidden_size=hidden_size, time_steps=time_steps,
-                          feature_num=feature_num,learning_rate = initial_lr, use_weighted_loss=use_weighted_loss,\
-                          epochs=num_epochs,batch_size=batch_size, verbose=1, validation_data=(X_val,y_val))
-    history = clf.fit(X_train, y_train)
-    cv_count += 1
-
-pd.DataFrame(history.history).to_csv('classifier_cv_history.csv',index=False)
-
-# list all data in history
-print(history.history.keys())
-fig, axes = plt.subplots(1,2,figsize=(12,6))
-axes[0].plot(history.history['loss'])
-axes[0].plot(history.history['val_loss'])
-axes[0].set_xlabel('epoch')
-axes[0].set_ylabel('loss')
-axes[0].legend(['train','validation'], loc='upper right')
-axes[1].plot(history.history['f1_score'])
-axes[1].plot(history.history['val_f1_score'])
-axes[1].set_xlabel('epoch')
-axes[1].set_ylabel('F1 score')
-fig.suptitle('Loss (left) and F1 score (left) change with training Epoch')
-plt.show()
-"""
-
-
-# train 5 models using cross validation, and save the model with the best val_f1_score at each cross validation.
-cv_cnt = 0
-for train, val in kfold.split(np.asarray(labels), np.asarray(labels)):
-    # count the number of cross validation
-    cv_cnt += 1
-    print('{}th cv:'.format(cv_cnt))
-    # save the model achieving the best val_f1_score
-    checkpoint = tf.keras.callbacks.ModelCheckpoint('bidirection_cv_'+str(cv_cnt)+'.h5', monitor='val_f1_score', \
-                                                   mode='max', save_best_only=True, verbose=1)
-    # assign train and validation data
-    X_train = X[train]
-    X_val = X[val]
-    y_train = y[train]
-    y_val = y[val]
-
-    '''
-    If we use the time-saving version of feature curation, featured are not yet curated
-    beforehand and thus we need to do feature curation here.
-    '''
-    if use_time_saving_feature_curation:
-
-        # feature curation for the training set
-        X_train_FC = FeatureCurator(X_train)
-        X_train_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
-        X_train = X_train_FC.data
-
-        # feature curation for the validation set
-        X_val_FC = FeatureCurator(X_val)
-        X_val_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
-        X_val = X_val_FC.data
-
-    '''
-    For X_train and y_train: upsample minor and downsample major class
-    so that each class each occupies 50% of the X_train and y_train.
-    Make sure you do not do this to X_val and y_val
-    '''
-    if use_balance_classes:
-        X_train, y_train = balance_classes(X_train, y_train)
-
-    # define the model
-    model = classifier_bidirection(hidden_size=hidden_size, time_steps=time_steps, feature_num=feature_num,\
-                       learning_rate = initial_lr, use_weighted_loss=use_weighted_loss)
-
-    # train the model
-    history = model.fit(X_train, y_train, epochs=num_epochs, batch_size=batch_size,
-                        callbacks=[checkpoint], validation_data=(X_val,y_val))
-    # save the trained model
-    # model.save('bidirection_cv_'+str(cv_cnt)+'.h5')
-
 # Test on test data.
+
+# Read in test data
+file_name = "testSet.json"
+all_input, ids = convert_json_test_to_nparray(path_to_data, file_name)
+X_test = np.array(all_input)
 
 # Scale features for the test data.
 if use_time_saving_feature_curation:
@@ -554,10 +412,6 @@ if use_time_saving_feature_curation:
     X_test_FC = FeatureCurator(X_test)
     X_test_FC.fill_nan().power_transform().min_max_scaler().back_to_3D()
     X_test = X_test_FC.data
-
-# OneHot code y_test
-labels_test = y_test.copy()
-y_test = np.asarray(onehot_encoder.fit_transform(labels_test),dtype=FLOAT_TYPE)
 
 # make predictions using the five saved models
 pred_ls = []
@@ -569,7 +423,11 @@ for i in range(1,6):
 
 # Take the mean of predictions of the 5 models
 pred_mean = np.array(pred_ls).mean(axis=0)
+pred_bool = np.array(pred_mean[:,0] < pred_mean[:,1]) # if True, means there is flare, convert to 1
+pred_1D = np.where(pred_bool, 1, 0)
 
-# get f1 score
-f1_score_test = f1_score(K.variable(y_test), K.variable(pred_mean)).numpy()
-print("The F1 score on the test data is {:.4f}.".format(f1_score_test))
+
+ids = np.load("../input/test_ids.npy")
+pred_df = pd.DataFrame.from_dict({'Id': ids, 'ClassLabel': pred_1D}) # Default, dict key becomes column
+pred_df.to_csv("predictions.csv", index=False)
+"""

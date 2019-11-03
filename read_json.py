@@ -99,7 +99,7 @@ def get_test_obj_with_last_n_val(line, n):
 
     return {'id': id, 'values': data}
 
-def convert_json_test_to_nparray(data_dir: str, file_name: str, features):
+def convert_json_test_to_nparray(data_dir: str, file_name: str):
     """
     Generates a dataframe by concatenating the last values of each
     multi-variate time series. This method is designed as an example
@@ -121,7 +121,7 @@ def convert_json_test_to_nparray(data_dir: str, file_name: str, features):
             else:
                 # a pd.DataFrame with shape = time_steps x number of features
                 # here time_steps = 60, and # of features are the length of the list `features`.
-                df_selected_features = obj['values'][features]
+                df_selected_features = obj['values']
 
                 # a list of np.array, each has shape=time_steps x number of features
                 # I use DataFrame here so that the feature name is contained, which we need later for
