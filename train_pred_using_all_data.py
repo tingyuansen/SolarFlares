@@ -347,7 +347,7 @@ for fold_num in range(2,3):
     # sklearn.model_selection.StratifiedKFold splits data while preserving percentage of samples for each class
     # sklearn.model_selection.StratifiedKFold provides indices
     # kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=None)
 
     # splitted train and val index, kfold.split is a class generator and thus cannot be supscritable, i.e.
     # splitted_train_val_index[0] does not work!
