@@ -83,8 +83,8 @@ class FeatureCurator():
 
     # fill in nan using linear regression iteratively
     def fill_nan(self):
-        # replace positive (negative) infty by np.nan
-        self.data_expand = np.nan_to_num(self.data_expand, nan=np.nan, posinf=np.nan, neginf=np.nan)
+        # replace positive (negative) infty by very large positive (negative) numbers
+        self.data_expand = np.nan_to_num(self.data_expand, nan=np.nan)
         # fill nan by linear regression iteratively
         self.data_expand = IterativeImputer().fit_transform(self.data_expand)
         return self
@@ -340,18 +340,22 @@ for fold_num in range(2,3):
 
     # Split X, y into training and validation sets
     # define k-fold cross validation test harness
-    # seed = 2 # random seed for reproductivity
+    seed = 2 # random seed for reproductivity
 
     n_splits = 4 # split data set into 0.2 validation & 0.8 training for cross validation.
 
     # sklearn.model_selection.StratifiedKFold splits data while preserving percentage of samples for each class
     # sklearn.model_selection.StratifiedKFold provides indices
     # kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=None)
+    kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+
+    # splitted train and val index, kfold.split is a class generator and thus cannot be supscritable, i.e.
+    # splitted_train_val_index[0] does not work!
+    splitted_train_val_index = kfold.split(np.asarray(labels), np.asarray(labels))
 
     # train 5 models using cross validation, and save the model with the best val_f1_score at each cross validation.
     cv_cnt = 0
-    for train, val in kfold.split(np.asarray(labels), np.asarray(labels)):
+    for train, val in splitted_train_val_index:
         # count the number of cross validation
         cv_cnt += 1
         print('{}th cv:'.format(cv_cnt))

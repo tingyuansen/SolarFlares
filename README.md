@@ -17,6 +17,8 @@ of model development. On the contrary,
 
 * `read_json.py` contains functions for reading data from .json files and converting them to numpy arrays.
 
+All three files above assume the data files are in the dir '../input'. If you put the data files elsewhere, please change the parameter `path_to_data` accordingly.
+
 * `utils` is a directory contains codes in which we manually explore featue curation. This part is useful if you like to understand the physcial
 parameters used in this project, otherwise you do not need to use anything from this directory.
 
@@ -37,6 +39,14 @@ parameters used in this project, otherwise you do not need to use anything from 
 Copyright 2019 by Jing Luan.
 
 In brief, you can use, distribute, and change this package as you please.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 ## Acknowledgment
 
