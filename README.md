@@ -34,6 +34,9 @@ parameters used in this project, otherwise you do not need to use anything from 
 * [Sankalp Gilda](https://www.astro.ufl.edu/people/graduate-students/sankalp-gilda/) -- s.gilda at ufl dot edu
 * [Yuan-Sen Ting](http://www.sns.ias.edu/~ting/) -- ting at ias dot edu
 
+## Citing this code
+* Please cite this repository, when using this code.
+
 ## Licensing
 
 Copyright 2019 by Jing Luan.
