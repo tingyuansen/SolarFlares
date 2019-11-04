@@ -294,7 +294,14 @@ def classifier_bidirection(hidden_size, time_steps, feature_num, learning_rate, 
 from read_json import convert_json_data_to_nparray, convert_json_test_to_nparray
 
 path_to_data = '../input'
-for fold_num in range(2,3):
+
+
+"""
+'''
+Train models on all 3 data sets. Save the model with the best val_f1_score in each cross validation.
+'''
+
+for fold_num in range(1,4):
     print('train on {}th data set.'.format(fold_num))
     file_name = "fold"+str(fold_num)+"Training.json"
     fname = os.path.join(path_to_data,file_name)
@@ -401,8 +408,8 @@ for fold_num in range(2,3):
         # train the model
         history = model.fit(X_train, y_train, epochs=num_epochs, batch_size=batch_size,
                             callbacks=[checkpoint, earlystop], validation_data=(X_val,y_val))
-
 """
+
 # Test on test data.
 
 # Read in test data
@@ -410,6 +417,7 @@ file_name = "testSet.json"
 all_input, ids = convert_json_test_to_nparray(path_to_data, file_name)
 X_test = np.array(all_input)
 
+use_time_saving_feature_curation = True
 # Scale features for the test data.
 if use_time_saving_feature_curation:
     # feature curation for the training set
@@ -418,20 +426,25 @@ if use_time_saving_feature_curation:
     X_test = X_test_FC.data
 
 # make predictions using the five saved models
+model_name_ls = ['bidirection_cv_1_fold_1.h5', 'bidirection_cv_2_fold_2.h5', 'bidirection_cv_3_fold_3.h5',\
+                 'bidirection_cv_5_fold_1.h5', 'bidirection_cv_1_fold_2.h5', 'bidirection_cv_2_fold_3.h5',\
+                 'bidirection_cv_4_fold_1.h5', 'bidirection_cv_1_fold_3.h5', 'bidirection_cv_3_fold_1.h5',\
+                 'bidirection_cv_4_fold_2.h5', 'bidirection_cv_2_fold_1.h5', 'bidirection_cv_3_fold_2.h5',\
+                 'bidirection_cv_4_fold_3.h5']
 pred_ls = []
-for i in range(1,6):
-    model_name = '../trained_models/bidirection_cv_'+str(i)+'.h5'
+for mn in model_name_ls:
+    model_name = '../trained_models/'+mn
     model = tf.keras.models.load_model(model_name,custom_objects={'mish':mish, 'f1_score': f1_score})
     y_pred = model.predict(X_test)
     pred_ls.append(y_pred)
 
 # Take the mean of predictions of the 5 models
 pred_mean = np.array(pred_ls).mean(axis=0)
+# convert OneHotCoded y back to one dimensional y
 pred_bool = np.array(pred_mean[:,0] < pred_mean[:,1]) # if True, means there is flare, convert to 1
 pred_1D = np.where(pred_bool, 1, 0)
 
 
 ids = np.load("../input/test_ids.npy")
 pred_df = pd.DataFrame.from_dict({'Id': ids, 'ClassLabel': pred_1D}) # Default, dict key becomes column
-pred_df.to_csv("predictions.csv", index=False)
-"""
+pred_df.to_csv("../predictions/predictions_11_03_2019.csv", index=False)
